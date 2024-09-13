@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 @Service
 public class AmountTransferService {
 
-    private static final String notificationFormat = "Your account %s has been %s by %s";
+    private static final String NOTIFICATION_MESSAGE_TEMPLATE = "Your account %s has been %s by %s";
 
     @Autowired
     private AccountsRepository accountsRepository;
@@ -34,26 +34,28 @@ public class AmountTransferService {
      * @throws AccountDoesNotExistException - If the account doesn't exist
      */
     public void transferAmount(TransferAmount transferAmount) throws InsufficientBalanceException, AccountDoesNotExistException {
+
+        String fromAccountId = transferAmount.getAccountFromId();
+        String toAccountId = transferAmount.getAccountToId();
         BigDecimal amountToTransfer = transferAmount.getTransferAmount();
-        Account fromAccount = accountsRepository.getAccount(transferAmount.getAccountFromId());
-        Account toAccount = accountsRepository.getAccount(transferAmount.getAccountToId());
-        if(fromAccount == null || toAccount == null) {
-            throw new AccountDoesNotExistException(String.format("Account id %s or %s does not exist ", transferAmount.getAccountFromId(), transferAmount.getAccountToId()));
+
+        // Checking if the accounts are valid
+        if(accountsRepository.getAccount(fromAccountId) == null || accountsRepository.getAccount(toAccountId) == null) {
+            throw new AccountDoesNotExistException(String.format("Account id %s or %s does not exist ", fromAccountId, toAccountId));
         }
-        BigDecimal availableBalance = fromAccount.getBalance();
-        // This is the critical block to perform the debit and credit operations in a multithreaded environment
-        synchronized (this) {
-            fromAccount = accountsRepository.getAccount(transferAmount.getAccountFromId());
-            if (availableBalance.compareTo(amountToTransfer) < 0) {
-                throw new InsufficientBalanceException("Insufficient balance in account " + fromAccount.getAccountId());
-            } else {
-                toAccount = accountsRepository.getAccount(transferAmount.getAccountToId());
-                toAccount.setBalance(toAccount.getBalance().add(amountToTransfer));
-                fromAccount.setBalance(fromAccount.getBalance().subtract(amountToTransfer));
-            }
+
+        // Checking if the account to be debited has sufficient balance
+        if (accountsRepository.getAccount(fromAccountId).getBalance().compareTo(amountToTransfer) < 0) {
+            throw new InsufficientBalanceException(String.format("Insufficient balance in your account %s", fromAccountId));
+        } else {
+            accountsRepository.debitAccount(fromAccountId, amountToTransfer);
+            accountsRepository.creditAccount(toAccountId, amountToTransfer);
         }
-        notificationService.notifyAboutTransfer(fromAccount, String.format(notificationFormat, fromAccount.getAccountId(), "debited", String.valueOf(transferAmount)));
-        notificationService.notifyAboutTransfer(fromAccount, String.format(notificationFormat, toAccount.getAccountId(), "credited", String.valueOf(transferAmount)));
+
+        // Sending notification to the account holders for debit transactions
+        notificationService.notifyAboutTransfer(accountsRepository.getAccount(fromAccountId), String.format(NOTIFICATION_MESSAGE_TEMPLATE, fromAccountId, "debited", String.valueOf(amountToTransfer)));
+        // Sending notification to the account holders for credit transactions
+        notificationService.notifyAboutTransfer(accountsRepository.getAccount(toAccountId), String.format(NOTIFICATION_MESSAGE_TEMPLATE, toAccountId, "credited", String.valueOf(amountToTransfer)));
     }
 
 }

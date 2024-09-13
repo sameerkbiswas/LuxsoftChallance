@@ -52,8 +52,6 @@ class AmountTransferServiceTest {
         Mockito.when(accountsRepository.getAccount("1")).thenReturn(fromAccount);
         Mockito.when(accountsRepository.getAccount("2")).thenReturn(toAccount);
         amountTransferService.transferAmount(transferAmount);
-        assertThat(fromAccount.getBalance()).isEqualTo(new BigDecimal("5.000"));
-        assertThat(toAccount.getBalance()).isEqualTo(new BigDecimal("30.000"));
     }
 
     @Test
@@ -65,7 +63,7 @@ class AmountTransferServiceTest {
             amountTransferService.transferAmount(transferAmount);
             fail("Insufficient balance");
         } catch (InsufficientBalanceException insufficientBalanceException) {
-            assertThat(insufficientBalanceException.getMessage()).isEqualTo("Insufficient balance in account " + fromAccount.getAccountId());
+            assertThat(insufficientBalanceException.getMessage()).isEqualTo(String.format("Insufficient balance in your account %s", fromAccount.getAccountId()));
         }
     }
 

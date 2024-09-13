@@ -4,6 +4,7 @@ import com.dws.challenge.domain.Account;
 import com.dws.challenge.exception.DuplicateAccountIdException;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,8 +23,18 @@ public class AccountsRepositoryInMemory implements AccountsRepository {
     }
 
     @Override
-    public Account getAccount(String accountId) {
+    public synchronized Account getAccount(String accountId) {
         return accounts.get(accountId);
+    }
+
+    public synchronized void creditAccount(String accountId, BigDecimal amount) {
+        Account account = accounts.get(accountId);
+        account.setBalance(account.getBalance().add(amount));
+    }
+
+    public synchronized void debitAccount(String accountId, BigDecimal amount) {
+        Account account = accounts.get(accountId);
+        account.setBalance(account.getBalance().subtract(amount));
     }
 
     @Override
